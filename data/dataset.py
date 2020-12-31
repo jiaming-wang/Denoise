@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2019-10-23 14:57:22
-LastEditTime: 2020-12-18 11:17:38
+LastEditTime: 2020-12-31 23:20:18
 @Description: file content
 '''
 import torch.utils.data as data
@@ -80,14 +80,13 @@ def augment(img_in, img_tar, img_bic, flip_h=True, rot=True):
     return img_in, img_tar, img_bic, info_aug
 
 class Data(data.Dataset):
-    def __init__(self, image_dir, upscale_factor, cfg, transform=None):
+    def __init__(self, image_dir, cfg, transform=None):
         super(Data, self).__init__()
         input_dir = image_dir + '/input'
         label_dir = image_dir + '/label'
         self.input_image_filenames = [join(input_dir, x) for x in listdir(input_dir)]
         self.label_image_filenames = [join(label_dir, x) for x in listdir(label_dir)]
         self.patch_size = cfg['data']['patch_size']
-        self.upscale_factor = upscale_factor
         self.transform = transform
         self.data_augmentation = cfg['data']['data_augmentation']
         self.normalize = cfg['data']['normalize']
@@ -95,113 +94,46 @@ class Data(data.Dataset):
 
     def __getitem__(self, index):
         
-        target = load_img(self.label_image_filenames[index])['label']
+        label = load_img(self.label_image_filenames[index])['label']
         input = load_img(self.input_image_filenames[index])['input']
 
         _, file = os.path.split(self.label_image_filenames[index])
 
         if self.transform:
             input = self.transform(input)
-            target = self.transform(target)
+            label = self.transform(label)
             
-        return input, target
+        return input, label, file
 
     def __len__(self):
         return len(self.input_image_filenames)
 
 class Data_test(data.Dataset):
-    def __init__(self, image_dir, upscale_factor, cfg, transform=None):
+    def __init__(self, image_dir, cfg, transform=None):
         super(Data_test, self).__init__()
         
-        self.image_filenames = [join(image_dir, x) for x in listdir(image_dir) if is_image_file(x)]
-        self.upscale_factor = upscale_factor
+        input_dir = image_dir + '/input'
+        label_dir = image_dir + '/label'
+        self.input_image_filenames = [join(input_dir, x) for x in listdir(input_dir)]
+        self.label_image_filenames = [join(label_dir, x) for x in listdir(label_dir)]
+        self.patch_size = cfg['data']['patch_size']
         self.transform = transform
+        self.data_augmentation = cfg['data']['data_augmentation']
         self.normalize = cfg['data']['normalize']
         self.cfg = cfg
 
     def __getitem__(self, index):
         
-        target = load_img(self.image_filenames[index])
-        _, file = os.path.split(self.image_filenames[index])
-        target = target.crop((0, 0, target.size[0] // self.upscale_factor * self.upscale_factor, target.size[1] // self.upscale_factor * self.upscale_factor))
-        input = target.resize((int(target.size[0]/self.upscale_factor),int(target.size[1]/self.upscale_factor)), Image.BICUBIC)       
-        bicubic = rescale_img(input, self.upscale_factor)
-           
+        label = load_img(self.label_image_filenames[index])['label']
+        input = load_img(self.input_image_filenames[index])['input']
+
+        _, file = os.path.split(self.label_image_filenames[index])
+
         if self.transform:
             input = self.transform(input)
-            bicubic = self.transform(bicubic)
-            target = self.transform(target)
-
-        if self.cfg['data']['noise'] != 0:
-            noise = torch.randn(B,C,H,W).mul_(self.cfg['data']['noise']).float()
-            input = input + noise
-
-        if self.normalize:
-            input = input * 2 - 1
-            bicubic = bicubic * 2 - 1
-            target = target * 2 - 1
+            label = self.transform(label)
             
-        return input, target, bicubic, file
+        return input, label, file
 
     def __len__(self):
-        return len(self.image_filenames)
-
-class Data_eval(data.Dataset):
-    def __init__(self, image_dir, upscale_factor, cfg, transform=None):
-        super(Data_eval, self).__init__()
-        
-        self.image_filenames = [join(image_dir, x) for x in listdir(image_dir) if is_image_file(x)]
-        self.upscale_factor = upscale_factor
-        self.transform = transform
-        self.normalize = cfg['data']['normalize']
-
-    def __getitem__(self, index):
-    
-        input = load_img(self.image_filenames[index])      
-        bicubic = rescale_img(input, self.upscale_factor)
-        _, file = os.path.split(self.image_filenames[index])
-           
-        if self.transform:
-            input = self.transform(input)
-            bicubic = self.transform(bicubic)
-            
-        if self.normalize:
-            input = input * 2 - 1
-            bicubic = bicubic * 2 - 1
-            target = target * 2 - 1
-            
-        return input, bicubic, file
-
-    def __len__(self):
-        return len(self.image_filenames)
-
-def DUF_downsample(x, scale=4):
-    """Downsamping with Gaussian kernel used in the DUF official code
-
-    Args:
-        x (Tensor, [B, T, C, H, W]): frames to be downsampled.
-        scale (int): downsampling factor: 2 | 3 | 4.
-    """
-
-    def gkern(kernlen=13, nsig=1.6):
-        import scipy.ndimage.filters as fi
-        inp = np.zeros((kernlen, kernlen))
-        # set element at the middle to one, a dirac delta
-        inp[kernlen // 2, kernlen // 2] = 1
-        # gaussian-smooth the dirac, resulting in a gaussian filter mask
-        return fi.gaussian_filter(inp, nsig)
-
-    B, T, C, H, W = x.size()
-    x = x.view(-1, 1, H, W)
-    pad_w, pad_h = 6 + scale * 2, 6 + scale * 2  # 6 is the pad of the gaussian filter
-    r_h, r_w = 0, 0
-    if scale == 3:
-        r_h = 3 - (H % 3)
-        r_w = 3 - (W % 3)
-    x = F.pad(x, [pad_w, pad_w + r_w, pad_h, pad_h + r_h], 'reflect')
-
-    gaussian_filter = torch.from_numpy(gkern(13, 0.4 * scale)).type_as(x).unsqueeze(0).unsqueeze(0)
-    x = F.conv2d(x, gaussian_filter, stride=scale)
-    x = x[:, :, 2:-2, 2:-2]
-    x = x.view(B, T, C, x.size(2), x.size(3))
-    return x
+        return len(self.input_image_filenames)

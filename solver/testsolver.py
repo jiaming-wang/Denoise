@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2020-02-17 22:19:38
-LastEditTime: 2020-12-31 16:37:18
+LastEditTime: 2020-12-31 23:23:28
 @Description: file content
 '''
 from solver.basesolver import BaseSolver
@@ -57,64 +57,30 @@ class Testsolver(BaseSolver):
         avg_time= []
         for batch in self.data_loader:
             with torch.no_grad():
-                input, target, bicubic, name = Variable(batch[0]), Variable(batch[1]), Variable(batch[2]), batch[3]
+                input, target, name = Variable(batch[0]), Variable(batch[1]), batch[2]
             if self.cuda:
                 input = input.cuda(self.gpu_ids[0])
                 target = target.cuda(self.gpu_ids[0])
-                bicubic = bicubic.cuda(self.gpu_ids[0])
 
             t0 = time.time()
             prediction = self.model(input)   
             t1 = time.time()
-
             print("===> Processing: %s || Timer: %.4f sec." % (name[0], (t1 - t0)))
             avg_time.append(t1 - t0)
-            # self.save_img(bicubic.cpu().data, name[0][0:-4]+'_bic.png')
-            # self.save_img(target.cpu().data, name[0][0:-4]+'_gt.png')
-            # self.save_img(prediction.cpu().data, name[0][0:-4]+'.png')
-        print("===> AVG Timer: %.4f sec." % (np.mean(avg_time)))
-        
-    def eval(self):
-        self.model.eval()
-        avg_time= []
-        for batch in self.data_loader:
-            with torch.no_grad():
-                input, bicubic, name = Variable(batch[0]), Variable(batch[1]), batch[2]
-            if self.cuda:
-                input = input.cuda(self.gpu_ids[0])
-                bicubic = bicubic.cuda(self.gpu_ids[0])
-
-            t0 = time.time()
-            prediction = self.model(input)
-
-            t1 = time.time()
-            print("===> Processing: %s || Timer: %.4f sec." % (name[0], (t1 - t0)))
-            avg_time.append(t1 - t0)
-            self.save_img(bicubic.cpu().data, name[0][0:-4]+'_Bic.png')
-            self.save_img(prediction.cpu().data, name[0][0:-4]+'.png')
+            np.save(name[0][0:-4]+'_input.npy',input.cpu().data)
+            np.save(name[0][0:-4]+'_target.npy',target.cpu().data)
+            np.save(name[0][0:-4]+'_prediction.npy',prediction.cpu().data)
         print("===> AVG Timer: %.4f sec." % (np.mean(avg_time)))
 
-    def save_img(self, img, img_name):
-        save_img = img.squeeze().clamp(0, 1).numpy().transpose(1,2,0)
-        # save img
-        save_dir=os.path.join('results/',self.cfg['test']['type'])
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        
-        save_fn = save_dir +'/'+ img_name
-        cv2.imwrite(save_fn, cv2.cvtColor(save_img*255, cv2.COLOR_BGR2RGB),  [cv2.IMWRITE_PNG_COMPRESSION, 0])
    
     def run(self):
         self.check()
         if self.cfg['test']['type'] == 'test':            
-            self.dataset = get_test_data(self.cfg, self.cfg['test']['test_dataset'], self.cfg['data']['upsacle'])
+            self.dataset = get_test_data(self.cfg, self.cfg['test']['test_dataset'])
             self.data_loader = DataLoader(self.dataset, shuffle=False, batch_size=1,
                 num_workers=self.cfg['threads'])
             self.test()
         elif self.cfg['test']['type'] == 'eval':            
-            self.dataset = get_eval_data(self.cfg, self.cfg['test']['test_dataset'], self.cfg['data']['upsacle'])
-            self.data_loader = DataLoader(self.dataset, shuffle=False, batch_size=1,
-                num_workers=self.cfg['threads'])
-            self.eval()
+            raise ValueError('Mode error!')
         else:
             raise ValueError('Mode error!')

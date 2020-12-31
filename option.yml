@@ -28,7 +28,7 @@ test:
 
 pretrain:
   pretrained: False
-  pre_sr: 1592134968/best.pth
+  pre_pth: 1592134968/best.pth
   pre_folder: checkpoint
 
 data:

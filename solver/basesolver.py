@@ -3,11 +3,11 @@
 '''
 @Author: wjm
 @Date: 2019-10-13 23:07:03
-LastEditTime: 2020-12-31 16:32:20
+LastEditTime: 2020-12-31 23:18:38
 @Description: file content
 '''
 import os, torch, time
-from utils.utils import  draw_curve_and_save, save_config
+from utils.utils import save_config
 from data.dataset import data
 from data.data import get_data
 from torch.utils.data import DataLoader
@@ -26,10 +26,10 @@ class BaseSolver:
         else:
             self.num_workers = 0
 
-        self.train_dataset = get_data(cfg, cfg['train_dataset'], cfg['data']['upsacle'])
+        self.train_dataset = get_data(cfg, cfg['train_dataset'])
         self.train_loader = DataLoader(self.train_dataset, cfg['data']['batch_size'], shuffle=True,
             num_workers=self.num_workers)
-        self.val_dataset = get_data(cfg, cfg['valid_dataset'], cfg['data']['upsacle'])
+        self.val_dataset = get_data(cfg, cfg['valid_dataset'])
         self.val_loader = DataLoader(self.val_dataset, cfg['data']['batch_size'], shuffle=False,
             num_workers=self.num_workers)
 

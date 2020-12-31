@@ -3,18 +3,17 @@
 '''
 @Author: wjm
 @Date: 2019-10-13 23:04:48
-LastEditTime: 2020-12-31 16:36:45
+LastEditTime: 2020-12-31 23:13:31
 @Description: file content
 '''
 import os, importlib, torch, shutil
 from solver.basesolver import BaseSolver
-from utils.utils import maek_optimizer, make_loss, calculate_psnr, calculate_ssim, save_config, save_net_config, save_net_py
+from utils.utils import maek_optimizer, make_loss, save_config, save_net_config, save_net_py
 import torch.backends.cudnn as cudnn
 from tqdm import tqdm
 import numpy as np
 from importlib import import_module
 from torch.autograd import Variable
-from data.data import DatasetFromHdf5
 from torch.utils.data import DataLoader
 import torch.nn as nn
 from tensorboardX import SummaryWriter
@@ -35,7 +34,7 @@ class Solver(BaseSolver):
             scale_factor=self.cfg['data']['upsacle'], 
             args = self.cfg
         )
-        self.model = self.model.double() 
+        self.model = self.model
         self.optimizer = maek_optimizer(self.cfg['schedule']['optimizer'], cfg, self.model.parameters())
         self.loss = make_loss(self.cfg['schedule']['loss'])
 
@@ -55,24 +54,21 @@ class Solver(BaseSolver):
 
             epoch_loss = 0
             for iteration, batch in enumerate(self.train_loader, 1):
-                lr, hr = Variable(batch[0]), Variable(batch[1])
-            #for data in self.train_loader:
-                #lr, hr = data[0], data[1]
+                input, label = Variable(batch[0]), Variable(batch[1])
                 if self.cuda:
-                    lr, hr = lr.cuda(self.gpu_ids[0]), hr.cuda(self.gpu_ids[0])
+                    input, label = input.cuda(self.gpu_ids[0]), label.cuda(self.gpu_ids[0])
                 
                 self.optimizer.zero_grad()               
                 self.model.train()
 
-                sr = self.model(lr)
-                loss = self.loss(sr, hr) / (self.cfg['data']['batch_size'] * 2)
+                prediction = self.model(input)
+                loss = self.loss(prediction, label) / (self.cfg['data']['batch_size'] * 2)
 
                 epoch_loss += loss.data
                 t.set_postfix_str("Batch loss {:.4f}".format(loss.item()))
                 t.update()
 
                 loss.backward()
-                # print("grad before clip:"+str(self.model.output_conv.conv.weight.grad))
                 if self.cfg['schedule']['gclip'] > 0:
                     nn.utils.clip_grad_norm_(
                         self.model.parameters(),
@@ -87,35 +83,17 @@ class Solver(BaseSolver):
     def eval(self):
         with tqdm(total=len(self.val_loader), miniters=1,
                 desc='Val Epoch: [{}/{}]'.format(self.epoch, self.nEpochs)) as t1:
-            psnr_list, ssim_list = [], []
+
             for iteration, batch in enumerate(self.val_loader, 1):
-                lr, hr = Variable(batch[0]), Variable(batch[1])
+                input, label= Variable(batch[0]), Variable(batch[1])
 
                 if self.cuda:
-                    lr, hr = lr.cuda(), hr.cuda()
+                    input, label = input.cuda(), label.cuda()
                 self.model.eval()
                 with torch.no_grad():
-                    sr = self.model(lr)
-                    loss = self.loss(sr, hr)
+                    prediction = self.model(input)
+                    loss = self.loss(prediction, label)
 
-                batch_psnr, batch_ssim = [], []
-                for c in range(sr.shape[0]):
-                    #predict_sr = (sr[c, ...].cpu().numpy().transpose((1, 2, 0)) + 1) * 127.5
-                    #ground_truth = (hr[c, ...].cpu().numpy().transpose((1, 2, 0)) + 1) * 127.5
-                    if not self.cfg['data']['normalize']:
-                        predict_sr = (sr[c, ...].cpu().numpy().transpose((1, 2, 0))) * 255
-                        ground_truth = (hr[c, ...].cpu().numpy().transpose((1, 2, 0))) * 255
-                    else:          
-                        predict_sr = (sr[c, ...].cpu().numpy().transpose((1, 2, 0)) + 1) * 127.5
-                        ground_truth = (hr[c, ...].cpu().numpy().transpose((1, 2, 0)) + 1) * 127.5
-                    psnr = calculate_psnr(predict_sr, ground_truth, 255)
-                    ssim = calculate_ssim(predict_sr, ground_truth, 255)
-                    batch_psnr.append(psnr)
-                    batch_ssim.append(ssim)
-                avg_psnr = np.array(batch_psnr).mean()
-                avg_ssim = np.array(batch_ssim).mean()
-                psnr_list.extend(batch_psnr)
-                ssim_list.extend(batch_ssim)
                 t1.set_postfix_str('Batch loss: {:.4f}'.format(loss.item()))
                 t1.update()
             self.records['Epoch'].append(self.epoch)
@@ -143,7 +121,7 @@ class Solver(BaseSolver):
             self.model = torch.nn.DataParallel(self.model, device_ids=self.gpu_ids) 
 
     def check_pretrained(self):
-        checkpoint = os.path.join(self.cfg['pretrain']['pre_folder'], self.cfg['pretrain']['pre_sr'])
+        checkpoint = os.path.join(self.cfg['pretrain']['pre_folder'], self.cfg['pretrain']['pre_pth'])
         if os.path.exists(checkpoint):
             self.model.load_state_dict(torch.load(checkpoint, map_location=lambda storage, loc: storage)['net'])
             self.epoch = torch.load(checkpoint, map_location=lambda storage, loc: storage)['epoch']
@@ -164,9 +142,6 @@ class Solver(BaseSolver):
             if self.records['Loss'] != [] and self.records['Loss'][-1] == np.array(self.records['Loss']).min():
                 shutil.copy(os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'latest.pth'),
                             os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'best.pth'))
-            # if self.records['PSNR'] != [] and self.records['PSNR'][-1] == np.array(self.records['PSNR']).max():
-            #     shutil.copy(os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'latest.pth'),
-            #                 os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'best.pth'))
 
     def run(self):
         self.check_gpu()
