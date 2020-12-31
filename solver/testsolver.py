@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2020-02-17 22:19:38
-LastEditTime: 2020-08-16 01:32:37
+LastEditTime: 2020-12-31 16:37:18
 @Description: file content
 '''
 from solver.basesolver import BaseSolver
@@ -63,23 +63,15 @@ class Testsolver(BaseSolver):
                 target = target.cuda(self.gpu_ids[0])
                 bicubic = bicubic.cuda(self.gpu_ids[0])
 
-            if self.cfg['algorithm'] == 'VDSR' or self.cfg['algorithm'] == 'SRCNN':
-                input = bicubic
-
             t0 = time.time()
             prediction = self.model(input)   
             t1 = time.time()
 
-            if self.cfg['data']['normalize'] :
-                target = (target+1) /2
-                prediction = (prediction+1) /2
-                bicubic = (bicubic+1) /2
-
             print("===> Processing: %s || Timer: %.4f sec." % (name[0], (t1 - t0)))
             avg_time.append(t1 - t0)
-            self.save_img(bicubic.cpu().data, name[0][0:-4]+'_bic.png')
-            self.save_img(target.cpu().data, name[0][0:-4]+'_gt.png')
-            self.save_img(prediction.cpu().data, name[0][0:-4]+'.png')
+            # self.save_img(bicubic.cpu().data, name[0][0:-4]+'_bic.png')
+            # self.save_img(target.cpu().data, name[0][0:-4]+'_gt.png')
+            # self.save_img(prediction.cpu().data, name[0][0:-4]+'.png')
         print("===> AVG Timer: %.4f sec." % (np.mean(avg_time)))
         
     def eval(self):

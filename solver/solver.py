@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2019-10-13 23:04:48
-LastEditTime: 2020-12-18 11:35:06
+LastEditTime: 2020-12-31 16:36:45
 @Description: file content
 '''
 import os, importlib, torch, shutil
@@ -39,7 +39,7 @@ class Solver(BaseSolver):
         self.optimizer = maek_optimizer(self.cfg['schedule']['optimizer'], cfg, self.model.parameters())
         self.loss = make_loss(self.cfg['schedule']['loss'])
 
-        self.log_name = self.cfg['algorithm'] + '_' + str(self.cfg['data']['upsacle']) + '_' + str(self.timestamp)
+        self.log_name = self.cfg['algorithm'] + '_' + str(self.timestamp)
         # save log
         self.writer = SummaryWriter('log/' + str(self.log_name))
         save_net_config(self.log_name, self.model)
@@ -90,7 +90,7 @@ class Solver(BaseSolver):
             psnr_list, ssim_list = [], []
             for iteration, batch in enumerate(self.val_loader, 1):
                 lr, hr = Variable(batch[0]), Variable(batch[1])
-            #for lr, hr in self.val_loader:
+
                 if self.cuda:
                     lr, hr = lr.cuda(), hr.cuda()
                 self.model.eval()
@@ -116,19 +116,9 @@ class Solver(BaseSolver):
                 avg_ssim = np.array(batch_ssim).mean()
                 psnr_list.extend(batch_psnr)
                 ssim_list.extend(batch_ssim)
-                t1.set_postfix_str('Batch loss: {:.4f}, PSNR: {:.4f}, SSIM: {:.4f}'.format(loss.item(), avg_psnr, avg_ssim))
+                t1.set_postfix_str('Batch loss: {:.4f}'.format(loss.item()))
                 t1.update()
             self.records['Epoch'].append(self.epoch)
-            self.records['PSNR'].append(np.array(psnr_list).mean())
-            self.records['SSIM'].append(np.array(ssim_list).mean())
-
-            save_config(self.log_name, 'Val Epoch {}: PSNR={:.4f}, SSIM={:.4f}'.format(self.epoch, self.records['PSNR'][-1],
-                                                                    self.records['SSIM'][-1]))
-            self.writer.add_scalar('PSNR_epoch', self.records['PSNR'][-1], self.epoch)
-            self.writer.add_scalar('SSIM_epoch', self.records['SSIM'][-1], self.epoch)
-            self.writer.add_image('image_SR', sr[0], self.epoch)
-            self.writer.add_image('image_LR', lr[0], self.epoch)
-            self.writer.add_image('image_HR', hr[0], self.epoch)
 
     def check_gpu(self):
         self.cuda = self.cfg['gpu_mode']
@@ -171,9 +161,12 @@ class Solver(BaseSolver):
         torch.save(self.ckp, os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'latest.pth'))
 
         if self.cfg['save_best']:
-            if self.records['PSNR'] != [] and self.records['PSNR'][-1] == np.array(self.records['PSNR']).max():
+            if self.records['Loss'] != [] and self.records['Loss'][-1] == np.array(self.records['Loss']).min():
                 shutil.copy(os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'latest.pth'),
                             os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'best.pth'))
+            # if self.records['PSNR'] != [] and self.records['PSNR'][-1] == np.array(self.records['PSNR']).max():
+            #     shutil.copy(os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'latest.pth'),
+            #                 os.path.join(self.cfg['checkpoint'] + '/' + str(self.log_name), 'best.pth'))
 
     def run(self):
         self.check_gpu()

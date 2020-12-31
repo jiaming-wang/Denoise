@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2019-10-13 23:07:03
-LastEditTime: 2020-08-16 01:38:15
+LastEditTime: 2020-12-31 16:32:20
 @Description: file content
 '''
 import os, torch, time
@@ -33,23 +33,10 @@ class BaseSolver:
         self.val_loader = DataLoader(self.val_dataset, cfg['data']['batch_size'], shuffle=False,
             num_workers=self.num_workers)
 
-        self.records = {'Epoch': [], 'PSNR': [], 'SSIM': [], 'Loss': []}
+        self.records = {'Epoch': [], 'Loss': []}
 
         if not os.path.exists(self.checkpoint_dir):
             os.makedirs(self.checkpoint_dir)
-
-    # def save_records(self):
-        # with open(os.path.join('log', 'records.txt'), 'wt') as f:
-        #     for i in range(len(self.records['Epoch'])):
-        #         f.write('Epoch {:03d}: PSNR = {:.8f}, SSIM = {:.8f} \n'.format(
-        #             self.records['Epoch'][i],
-        #             self.records['PSNR'][i],
-        #             self.records['SSIM'][i]
-        #         ))
-        # draw_curve_and_save(self.records['Epoch'], self.records['PSNR'], 'PSNR',
-        #                           os.path.join('log', 'PSNR-Curve.pdf'), 0.1)
-        # draw_curve_and_save(self.records['Epoch'], self.records['SSIM'], 'SSIM',
-                                #   os.path.join('log', 'SSIM-Curve.pdf'), 0.001)
 
     def load_checkpoint(self, model_path):
         if os.path.exists(model_path):
