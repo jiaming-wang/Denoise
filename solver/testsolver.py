@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2020-02-17 22:19:38
-LastEditTime: 2020-12-31 23:23:28
+LastEditTime: 2021-01-03 21:50:54
 @Description: file content
 '''
 from solver.basesolver import BaseSolver
@@ -58,10 +58,11 @@ class Testsolver(BaseSolver):
         for batch in self.data_loader:
             with torch.no_grad():
                 input, target, name = Variable(batch[0]), Variable(batch[1]), batch[2]
+            noise = torch.FloatTensor(input.size()).normal_(mean=0, std=int(self.cfg['data']['noise'])/255.).float() 
             if self.cuda:
-                input = input.cuda(self.gpu_ids[0])
-                target = target.cuda(self.gpu_ids[0])
-
+                input, label = input.cuda(), label.cuda()
+                noise = noise.cuda()
+            input = input + noise
             t0 = time.time()
             prediction = self.model(input)   
             t1 = time.time()

@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2019-10-13 23:04:48
-LastEditTime: 2020-12-31 23:13:31
+LastEditTime: 2021-01-03 21:50:04
 @Description: file content
 '''
 import os, importlib, torch, shutil
@@ -55,12 +55,13 @@ class Solver(BaseSolver):
             epoch_loss = 0
             for iteration, batch in enumerate(self.train_loader, 1):
                 input, label = Variable(batch[0]), Variable(batch[1])
+                noise = torch.FloatTensor(input.size()).normal_(mean=0, std=int(self.cfg['data']['noise'])/255.).float() 
                 if self.cuda:
-                    input, label = input.cuda(self.gpu_ids[0]), label.cuda(self.gpu_ids[0])
-                
+                    input, label = input.cuda(), label.cuda()
+                    noise = noise.cuda()
                 self.optimizer.zero_grad()               
                 self.model.train()
-
+                input = input + noise
                 prediction = self.model(input)
                 loss = self.loss(prediction, label) / (self.cfg['data']['batch_size'] * 2)
 
@@ -86,9 +87,12 @@ class Solver(BaseSolver):
 
             for iteration, batch in enumerate(self.val_loader, 1):
                 input, label= Variable(batch[0]), Variable(batch[1])
-
+                noise = torch.FloatTensor(input.size()).normal_(mean=0, std=int(self.cfg['data']['noise'])/255.).float() 
                 if self.cuda:
                     input, label = input.cuda(), label.cuda()
+                    noise = noise.cuda()
+
+                input = input + noise
                 self.model.eval()
                 with torch.no_grad():
                     prediction = self.model(input)
