@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2020-02-17 22:19:38
-LastEditTime: 2021-01-03 21:50:54
+LastEditTime: 2021-01-05 10:23:50
 @Description: file content
 '''
 from solver.basesolver import BaseSolver
@@ -57,7 +57,7 @@ class Testsolver(BaseSolver):
         avg_time= []
         for batch in self.data_loader:
             with torch.no_grad():
-                input, target, name = Variable(batch[0]), Variable(batch[1]), batch[2]
+                input, label, name = Variable(batch[0]), Variable(batch[1]), batch[2]
             noise = torch.FloatTensor(input.size()).normal_(mean=0, std=int(self.cfg['data']['noise'])/255.).float() 
             if self.cuda:
                 input, label = input.cuda(), label.cuda()
