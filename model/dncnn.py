@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2020-02-18 15:19:38
-LastEditTime: 2020-12-18 11:35:40
+LastEditTime: 2021-01-05 10:45:11
 @Description: file content
 '''
 
@@ -47,7 +47,5 @@ class Net(nn.Module):
         x = self.head(x)
         x = self.body(x)
         x = self.output_conv(x)
-        x = torch.add(x, res)
-        # print(x)
-        # print(res)
+        x = res - x
         return x    

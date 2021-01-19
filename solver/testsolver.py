@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2020-02-17 22:19:38
-LastEditTime: 2021-01-05 10:23:50
+LastEditTime: 2021-01-19 17:14:10
 @Description: file content
 '''
 from solver.basesolver import BaseSolver
@@ -56,21 +56,22 @@ class Testsolver(BaseSolver):
         self.model.eval()
         avg_time= []
         for batch in self.data_loader:
-            with torch.no_grad():
-                input, label, name = Variable(batch[0]), Variable(batch[1]), batch[2]
+            
+            input, label, name = Variable(batch[0]), Variable(batch[1]), batch[2]
             noise = torch.FloatTensor(input.size()).normal_(mean=0, std=int(self.cfg['data']['noise'])/255.).float() 
             if self.cuda:
                 input, label = input.cuda(), label.cuda()
                 noise = noise.cuda()
             input = input + noise
             t0 = time.time()
-            prediction = self.model(input)   
+            with torch.no_grad():
+                prediction = self.model(input)   
             t1 = time.time()
             print("===> Processing: %s || Timer: %.4f sec." % (name[0], (t1 - t0)))
             avg_time.append(t1 - t0)
-            np.save(name[0][0:-4]+'_input.npy',input.cpu().data)
-            np.save(name[0][0:-4]+'_target.npy',target.cpu().data)
-            np.save(name[0][0:-4]+'_prediction.npy',prediction.cpu().data)
+            np.save('./results/'+name[0][0:-4]+'_input.npy',input.cpu().data)
+            np.save('./results/'+name[0][0:-4]+'_target.npy',target.cpu().data)
+            np.save('./results/'+name[0][0:-4]+'_prediction.npy',prediction.cpu().data)
         print("===> AVG Timer: %.4f sec." % (np.mean(avg_time)))
 
    

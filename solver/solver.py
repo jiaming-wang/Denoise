@@ -3,7 +3,7 @@
 '''
 @Author: wjm
 @Date: 2019-10-13 23:04:48
-LastEditTime: 2021-01-03 21:50:04
+LastEditTime: 2021-01-05 10:52:03
 @Description: file content
 '''
 import os, importlib, torch, shutil
@@ -80,6 +80,7 @@ class Solver(BaseSolver):
             self.records['Loss'].append(epoch_loss / len(self.train_loader))
             save_config(self.log_name, 'Initial Training Epoch {}: Loss={:.4f}'.format(self.epoch, self.records['Loss'][-1]))
             self.writer.add_scalar('Loss_epoch', self.records['Loss'][-1], self.epoch)
+            # self.writer.add_image('output', prediction, self.epoch)
 
     def eval(self):
         with tqdm(total=len(self.val_loader), miniters=1,
